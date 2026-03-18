@@ -1,1 +1,1 @@
-npx serve . -l 3000
+node local-server.js
