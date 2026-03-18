@@ -126,14 +126,16 @@ app.post('/api/nearby-history', (req, res) => {
   }
 });
 
-// 本地开发：代理 /api/chat 到 DMXAPI（Vercel 上由 api/chat.js serverless function 处理）
+// 代理 /api/chat 到 DMXAPI（优先环境变量，其次本地文件）
 const dmxKeyPath = path.join(__dirname, 'llms', 'dmxapi.txt');
 app.post('/api/chat', async (req, res) => {
-  let apiKey = '';
-  try {
-    apiKey = fs.readFileSync(dmxKeyPath, 'utf-8').trim();
-  } catch {
-    return res.status(500).json({ error: 'API key not found. Create llms/dmxapi.txt' });
+  let apiKey = process.env.DMXAPI_KEY || '';
+  if (!apiKey) {
+    try {
+      apiKey = fs.readFileSync(dmxKeyPath, 'utf-8').trim();
+    } catch {
+      return res.status(500).json({ error: 'API key not configured. Set DMXAPI_KEY env or create llms/dmxapi.txt' });
+    }
   }
   const { messages, temperature = 0.3, max_tokens = 4096 } = req.body || {};
   if (!messages || !Array.isArray(messages)) {
