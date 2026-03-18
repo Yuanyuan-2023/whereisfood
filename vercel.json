@@ -1,10 +1,14 @@
 {
   "cleanUrls": true,
-  "functions": {
-    "api/chat.js": {
-      "maxDuration": 30,
-      "includeFiles": "api/**"
-    }
-  },
-  "installCommand": "echo skip"
+  "installCommand": "echo skip",
+  "builds": [
+    { "src": "api/chat.js", "use": "@vercel/node" },
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "foods.json", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/chat", "dest": "/api/chat.js" },
+    { "src": "/foods.json", "dest": "/foods.json" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
 }

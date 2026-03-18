@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "description": "Random food picker with persistent history",
-  "main": "server.js",
   "engines": {
     "node": ">=18"
   },
