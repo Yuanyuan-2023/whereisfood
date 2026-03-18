@@ -2,7 +2,9 @@
   "cleanUrls": true,
   "functions": {
     "api/chat.js": {
-      "maxDuration": 30
+      "maxDuration": 30,
+      "includeFiles": "api/**"
     }
-  }
+  },
+  "installCommand": "echo skip"
 }
