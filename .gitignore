@@ -1,0 +1,25 @@
+# Vercel
+.vercel
+
+# Dependencies
+node_modules/
+
+# Data & DB
+data/
+*.db
+
+# Sensitive files
+llms/dmxapi.txt
+llms/kimi.txt
+
+# History files (generated)
+llms/history/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
+.env*.local

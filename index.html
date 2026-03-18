@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>今天吃啥呢？</title>
+<style>
+  :root {
+    --primary: #ff6b35;
+    --primary-dark: #e55a2b;
+    --bg: #fdf6f0;
+    --card: #fff;
+    --text: #333;
+    --text-light: #888;
+    --border: #eee;
+    --shadow: 0 4px 24px rgba(0,0,0,0.08);
+    --radius: 14px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  header {
+    text-align: center;
+    padding: 40px 20px 10px;
+  }
+  header h1 {
+    font-size: 2rem;
+    color: var(--primary);
+  }
+  header p {
+    color: var(--text-light);
+    margin-top: 6px;
+    font-size: 0.95rem;
+  }
+  .container {
+    width: 100%;
+    max-width: 480px;
+    padding: 0 16px 40px;
+  }
+
+  /* 结果卡片 */
+  .result-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    text-align: center;
+    padding: 36px 20px;
+    margin: 20px 0;
+    position: relative;
+    overflow: hidden;
+    min-height: 170px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .result-card .food-name {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--primary);
+    transition: opacity .2s;
+  }
+  .result-card .food-meta {
+    margin-top: 8px;
+    font-size: 0.9rem;
+    color: var(--text-light);
+  }
+  .result-card .placeholder {
+    font-size: 1.1rem;
+    color: #ccc;
+  }
+
+  /* 抽取动画 */
+  .result-card.rolling .food-name {
+    animation: roll .08s steps(1) infinite;
+  }
+  @keyframes roll { 50% { opacity: .4; } }
+
+  /* 按钮 */
+  .btn-primary {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #fff;
+    background: var(--primary);
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background .2s, transform .1s;
+  }
+  .btn-primary:active { transform: scale(.97); }
+  .btn-primary:hover { background: var(--primary-dark); }
+
+  /* 筛选区 */
+  .filter-section {
+    margin-top: 24px;
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px;
+  }
+  .filter-section h3 {
+    font-size: 0.95rem;
+    margin-bottom: 12px;
+    color: var(--text-light);
+  }
+  .tag-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .tag {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    border: 1.5px solid var(--border);
+    background: #fff;
+    cursor: pointer;
+    user-select: none;
+    transition: all .15s;
+  }
+  .tag.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+
+  /* 历史 */
+  .history-section {
+    margin-top: 24px;
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px;
+  }
+  .history-section h3 {
+    font-size: 0.95rem;
+    margin-bottom: 10px;
+    color: var(--text-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .history-section h3 span {
+    font-size: 0.8rem;
+    color: var(--primary);
+    cursor: pointer;
+  }
+  .history-list {
+    list-style: none;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .history-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+  }
+  .history-list li:last-child { border-bottom: none; }
+  .history-list .hl-time { color: var(--text-light); font-size: 0.8rem; }
+  .empty-hint { color: #ccc; font-size: 0.9rem; }
+
+  /* 自定义食物 */
+  .custom-section {
+    margin-top: 24px;
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px;
+  }
+  .custom-section h3 {
+    font-size: 0.95rem;
+    margin-bottom: 12px;
+    color: var(--text-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .custom-section h3 span {
+    font-size: 0.8rem;
+    color: var(--primary);
+    cursor: pointer;
+  }
+  .custom-input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .custom-input-row input, .custom-input-row select {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .custom-input-row input:focus, .custom-input-row select:focus {
+    border-color: var(--primary);
+  }
+  .btn-add {
+    padding: 10px 18px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .2s;
+  }
+  .btn-add:hover { background: var(--primary-dark); }
+  .custom-food-list {
+    list-style: none;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .custom-food-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+  }
+  .custom-food-list li:last-child { border-bottom: none; }
+  .btn-del {
+    background: none;
+    border: none;
+    color: #e55;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 2px 8px;
+  }
+  .mode-switch {
+    display: flex;
+    gap: 0;
+    margin: 20px 0 0;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1.5px solid var(--border);
+  }
+  .mode-switch button {
+    flex: 1;
+    padding: 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    background: #fff;
+    color: var(--text-light);
+    transition: all .2s;
+  }
+  .mode-switch button.active {
+    background: var(--primary);
+    color: #fff;
+  }
+  .location-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .location-row input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .location-row input:focus {
+    border-color: var(--primary);
+  }
+  .location-status {
+    font-size: 0.85rem;
+    color: var(--text-light);
+  }
+  .location-text {
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: var(--text-light);
+    line-height: 1.5;
+    word-break: break-all;
+  }
+  .location-or {
+    font-size: 0.8rem;
+    color: var(--text-light);
+    text-align: center;
+    margin: 6px 0;
+  }
+  .distance-group {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .distance-group .tag {
+    flex: 1;
+    text-align: center;
+  }
+  .api-key-row {
+    display: none;
+  }
+  /* Vercel: API Key 通过环境变量注入，前端无需加载 */
+  .btn-search {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #fff;
+    background: #4a90d9;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background .2s, transform .1s;
+    margin-top: 10px;
+  }
+  .btn-search:active { transform: scale(.97); }
+  .btn-search:hover { background: #3a7bc8; }
+  .btn-search:disabled { background: #aaa; cursor: not-allowed; }
+  .nearby-results {
+    list-style: none;
+    margin-top: 14px;
+    max-height: 350px;
+    overflow-y: auto;
+  }
+  .nearby-results li {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+  .nearby-results li:last-child { border-bottom: none; }
+  .nearby-results .r-name {
+    font-weight: 600;
+    color: var(--primary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .nearby-results .r-name a {
+    font-size: 0.75rem;
+    color: #4a90d9;
+    text-decoration: none;
+  }
+  .nearby-results .r-meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 3px;
+    font-size: 0.78rem;
+    color: var(--text-light);
+  }
+  .nearby-results .r-meta .star { color: #f5a623; }
+  .nearby-results .r-meta .open { color: #4caf50; font-weight: 600; }
+  .nearby-results .r-meta .closed { color: #e55; font-weight: 600; }
+  .nearby-results .r-info {
+    font-size: 0.8rem;
+    color: var(--text-light);
+    margin-top: 2px;
+  }
+  .nearby-loading {
+    text-align: center;
+    color: var(--text-light);
+    padding: 20px 0;
+    font-size: 0.9rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🤔 今天吃啥呢？</h1>
+  <p>选择困难症终结者</p>
+</header>
+
+<div class="container">
+  <!-- 结果 -->
+  <div class="result-card" id="resultCard">
+    <div class="placeholder">点击下方按钮，开始抽取 🎲</div>
+  </div>
+
+  <!-- 模式切换 -->
+  <div class="mode-switch">
+    <button id="modeDefault" class="active">🍱 食物库</button>
+    <button id="modeNearby">📍 附近餐馆</button>
+    <button id="modeCustom">✏️ 自定义</button>
+  </div>
+
+  <!-- 开始按钮 -->
+  <button class="btn-primary" id="rollBtn">开始随机！</button>
+
+  <!-- 附近餐馆推荐 -->
+  <div class="custom-section" id="nearbySection" style="display:none">
+    <h3>🍜 选择菜系（可多选，不选=全部）</h3>
+    <div style="margin-bottom:12px">
+      <div class="tag-group" id="cuisineTags"></div>
+    </div>
+  </div>
+
+  <!-- 当前位置 -->
+  <div class="filter-section" id="locationBlock">
+    <h3>🧭 当前位置</h3>
+    <div class="location-row">
+      <input type="text" id="manualLocation" placeholder="如：北京市海淀区中关村" maxlength="50">
+    </div>
+    <div class="location-or">— 或 —</div>
+    <div class="location-row">
+      <button class="btn-add" id="locateBtn">📡 自动定位</button>
+      <span class="location-status" id="locationStatus">未获取</span>
+    </div>
+    <div class="location-text" id="locationText"></div>
+    <h3 style="margin-top:14px">📏 搜索距离</h3>
+    <div class="distance-group" id="distanceTags">
+      <div class="tag" data-value="500">&lt;500m</div>
+      <div class="tag" data-value="1000">&lt;1km</div>
+      <div class="tag" data-value="3000">&lt;3km</div>
+    </div>
+    <h3 style="margin-top:14px">📝 特别要求</h3>
+    <div class="location-row">
+      <input type="text" id="specialRequirement" placeholder="如：爆炒小龙虾，给生活加点辣..." maxlength="100">
+    </div>
+    <button class="btn-search" id="searchNearbyBtn">🔍 搜索附近餐馆</button>
+    <ul class="nearby-results" id="nearbyResults"></ul>
+  </div>
+
+  <!-- 自定义食物候选表 -->
+  <div class="custom-section" id="customSection" style="display:none">
+    <h3>
+      ✏️ 我的食物候选表
+      <span id="clearCustom">清空</span>
+    </h3>
+    <div class="custom-input-row">
+      <input type="text" id="customName" placeholder="食物名称" maxlength="20">
+      <button class="btn-add" id="addCustomBtn">添加</button>
+    </div>
+    <ul class="custom-food-list" id="customFoodList">
+      <li class="empty-hint">还没有自定义食物</li>
+    </ul>
+  </div>
+
+  <!-- 区域筛选 -->
+  <div class="filter-section">
+    <h3>📍 选择区域（可多选，不选=全部）</h3>
+    <div class="tag-group" id="areaTags"></div>
+  </div>
+
+  <!-- 排除类型 -->
+  <div class="filter-section">
+    <h3>🚫 排除做法（今天不想吃的）</h3>
+    <div class="tag-group" id="typeTags"></div>
+  </div>
+
+  <!-- 历史 -->
+  <div class="history-section">
+    <h3>
+      📝 抽取历史
+      <span id="clearHistory">清空</span>
+    </h3>
+    <ul class="history-list" id="historyList">
+      <li class="empty-hint">暂无记录</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+(function () {
+  const HISTORY_KEY = 'whereisfood_history';
+  const CUSTOM_KEY  = 'whereisfood_custom';
+  const MAX_HISTORY = 30;
+
+  let defaultFoods = [];
+  let allFoods = [];
+  let excludedTypes = new Set();
+  let selectedAreas = new Set();
+  let currentMode = 'default'; // 'default' | 'custom' | 'nearby'
+  let historyCache = [];
+
+  // DOM
+  const resultCard  = document.getElementById('resultCard');
+  const rollBtn     = document.getElementById('rollBtn');
+  const areaTags    = document.getElementById('areaTags');
+  const typeTags    = document.getElementById('typeTags');
+  const historyList = document.getElementById('historyList');
+  const clearBtn    = document.getElementById('clearHistory');
+
+  const modeDefault   = document.getElementById('modeDefault');
+  const modeCustomBtn = document.getElementById('modeCustom');
+  const modeNearbyBtn = document.getElementById('modeNearby');
+  const customSection = document.getElementById('customSection');
+  const nearbySection = document.getElementById('nearbySection');
+  const filterSections = document.querySelectorAll('.filter-section');
+  const locationSection = document.getElementById('locationBlock');
+  const customName    = document.getElementById('customName');
+  const addCustomBtn  = document.getElementById('addCustomBtn');
+  const customFoodList = document.getElementById('customFoodList');
+  const clearCustomBtn = document.getElementById('clearCustom');
+  // Nearby restaurant DOM
+  const cuisineTags = document.getElementById('cuisineTags');
+  const locateBtn = document.getElementById('locateBtn');
+  const locationStatus = document.getElementById('locationStatus');
+  const locationText = document.getElementById('locationText');
+  const distanceTags = document.getElementById('distanceTags');
+  const searchNearbyBtn = document.getElementById('searchNearbyBtn');
+  const nearbyResults = document.getElementById('nearbyResults');
+  const manualLocation = document.getElementById('manualLocation');
+
+  let selectedDistance = 0; // 0 表示不限距离
+  let nearbyRestaurants = []; // 模型返回的餐馆列表
+
+  // 菜系列表
+  const CUISINE_LIST = [
+  '川菜', '火锅', '烧烤', '麻辣烫', '烤肉',
+  '粤菜', '湘菜', '东北菜', '西北菜', '北京菜',
+  '本帮菜', '贵州菜', '云南菜', '日料', '韩餐',
+  '西餐', '东南亚', '轻食', '自助餐', '甜品'
+  ];
+  let selectedCuisines = new Set();
+
+  // 距离标签点击
+  distanceTags.addEventListener('click', e => {
+    const tag = e.target.closest('.tag');
+    if (!tag) return;
+    if (tag.classList.contains('active')) {
+      tag.classList.remove('active');
+      selectedDistance = 0;
+    } else {
+      distanceTags.querySelectorAll('.tag').forEach(t => t.classList.remove('active'));
+      tag.classList.add('active');
+      selectedDistance = Number(tag.dataset.value);
+    }
+  });
+
+  // API Key 已通过 Vercel 环境变量注入到 /api/chat serverless function
+  // 前端不再加载或持有 API Key
+
+  // 获取位置文本
+  function getLocationString() {
+    const manual = manualLocation.value.trim();
+    if (manual) return manual;
+    const txt = locationText.textContent;
+    const match = txt.match(/位置：([^|]+)/);
+    if (match) return match[1].trim();
+    return '北京海淀区中关村'; // 默认位置
+  }
+
+  // 调用 Claude 模型搜索附近餐馆（通过 /api/chat 代理）
+  async function fetchNearbyFromLLMs() {
+    const location = getLocationString();
+    if (!location) {
+      alert('请先输入位置或使用自动定位');
+      return;
+    }
+
+    const cuisineStr = selectedCuisines.size > 0
+      ? [...selectedCuisines].join('、')
+      : '不限';
+    const distanceStr = selectedDistance > 0
+      ? `${selectedDistance}米以内`
+      : '不限距离';
+
+    const specialReq = document.getElementById('specialRequirement').value.trim();
+    const specialStr = specialReq ? `\n- 特别要求：${specialReq}` : '';
+
+    const prompt = `你是一个本地生活餐馆搜索助手。请根据用户给定的位置和条件，搜索并推荐附近真实存在的餐馆。
+
+用户输入：
+- 位置：${location}
+- 搜索范围：${distanceStr}
+- 菜系偏好：${cuisineStr}${specialStr}
+
+任务要求：
+1. 以用户位置为中心，在“${distanceStr}”范围内搜索餐馆。
+2. 优先返回真实存在、当前可查询到、评分高且人气高的餐馆。
+3. 若指定了菜系偏好“${cuisineStr}”，优先返回匹配该菜系的餐馆；如果完全找不到，再放宽到相近菜系。
+4. 返回 5~10 家餐馆。
+5. 优先级排序：在指定范围内 > 评分更高 > 评论数/人气更高 > 优先营业中。
+6. 不要编造商户、评分、地址、营业状态或链接；如果信息不确定，不要敦填。
+7. link 字段尽量返回该餐馆可访问的详情页、地图页或官方页面链接。
+8. 输出必须是标准 JSON 数组，不要输出 markdown，不要加解释，不要加代码块。
+
+定位处理规则：
+1. 如果拿到了精确定位信息（经纬度/明确当前位置），则以该位置为中心搜索附近餐馆。
+2. 如果没有精确定位，但用户提供了可识别的地点名称，则以该地点名称作为搜索中心。
+3. 如果既没有精确定位，也没有明确地点名称，则默认按照“北京海淀”作为搜索中心进行推荐。
+4. 当使用默认位置时，在 reason 中注明：“未获取到定位信息，已按北京海淀推荐”。
+5. 不要把默认位置结果描述成用户真实附近餐馆。
+
+字段要求：
+- name: 餐馆名称
+- type: 菜系/类型
+- rating: 评分
+- review_count: 评论数/评价人数，没有则填 null
+- price: 人均价格，没有则填 null
+- distance: 距离，如“350m”“1.2km”
+- address: 简要地址
+- open_now: 是否营业中，true/false/null
+- reason: 推荐理由
+- link: 可访问链接，没有则填空字符串`;
+
+    searchNearbyBtn.disabled = true;
+    searchNearbyBtn.textContent = '🔍 搜索中...';
+    nearbyResults.innerHTML = '<li class="nearby-loading">正在搜索附近餐馆...</li>';
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.3,
+          max_tokens: 4096
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `API 请求失败 (${res.status})`);
+      }
+
+      const data = await res.json();
+      const content = data.choices?.[0]?.message?.content || '';
+
+      // 提取 JSON 数组
+      const jsonMatch = content.match(/\[\s*\{[\s\S]*\}\s*\]/);
+      if (!jsonMatch) throw new Error('返回格式异常，无法解析餐馆列表');
+
+      nearbyRestaurants = JSON.parse(jsonMatch[0]);
+      renderNearbyResults();
+      saveNearbyHistory(location, cuisineStr, distanceStr, nearbyRestaurants);
+    } catch (e) {
+      nearbyResults.innerHTML = `<li class="nearby-loading">❌ ${e.message}</li>`;
+      nearbyRestaurants = [];
+    } finally {
+      searchNearbyBtn.disabled = false;
+      searchNearbyBtn.textContent = '🔍 搜索附近餐馆';
+    }
+  }
+
+  // 保存搜索结果到 llms/history/
+  async function saveNearbyHistory(location, cuisine, distance, restaurants) {
+    const record = {
+      time: new Date().toISOString(),
+      location,
+      cuisine,
+      distance,
+      results: restaurants
+    };
+    // 保存到 localStorage 作为持久化
+    const key = 'whereisfood_nearby_history';
+    let history = [];
+    try { history = JSON.parse(localStorage.getItem(key)) || []; } catch {}
+    history.unshift(record);
+    if (history.length > 20) history.length = 20;
+    localStorage.setItem(key, JSON.stringify(history));
+    // 尝试通过 API 保存到文件
+    try {
+      await fetch('/api/nearby-history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(record)
+      });
+    } catch {}
+  }
+
+  // 渲染餐馆列表
+  function renderNearbyResults() {
+    if (nearbyRestaurants.length === 0) {
+      nearbyResults.innerHTML = '<li class="nearby-loading">暂无结果</li>';
+      return;
+    }
+    nearbyResults.innerHTML = nearbyRestaurants.map(r => {
+      const rating = r.rating ? `<span class="star">⭐ ${r.rating}</span>` : '';
+      const reviews = r.review_count ? `${r.review_count}评` : '';
+      const price = r.price ? `¥${r.price}/人` : '';
+      const dist = r.distance || '';
+      let openTag = '';
+      if (r.open_now === true) openTag = '<span class="open">营业中</span>';
+      else if (r.open_now === false) openTag = '<span class="closed">已打烊</span>';
+      const linkTag = r.link ? `<a href="${r.link}" target="_blank" rel="noopener">详情 ›</a>` : '';
+      return `<li>
+        <div class="r-name"><span>${r.name}</span>${linkTag}</div>
+        <div class="r-meta">${rating} ${reviews} ${price} ${dist} ${r.type || ''} ${openTag}</div>
+        <div class="r-info">${r.address || ''}</div>
+        ${r.reason ? `<div class="r-info">💬 ${r.reason}</div>` : ''}
+      </li>`;
+    }).join('');
+  }
+
+  searchNearbyBtn.addEventListener('click', fetchNearbyFromLLMs);
+
+  // 渲染菜系标签
+  function renderCuisineTags() {
+    cuisineTags.innerHTML = CUISINE_LIST.map(c =>
+      `<div class="tag" data-value="${c}">${c}</div>`
+    ).join('');
+  }
+  cuisineTags.addEventListener('click', e => {
+    const tag = e.target.closest('.tag');
+    if (!tag) return;
+    const v = tag.dataset.value;
+    if (selectedCuisines.has(v)) {
+      selectedCuisines.delete(v);
+      tag.classList.remove('active');
+    } else {
+      selectedCuisines.add(v);
+      tag.classList.add('active');
+    }
+  });
+
+  // 自定义食物 localStorage
+  function getCustomFoods() {
+    try { return JSON.parse(localStorage.getItem(CUSTOM_KEY)) || []; }
+    catch { return []; }
+  }
+  function saveCustomFoods(list) {
+    localStorage.setItem(CUSTOM_KEY, JSON.stringify(list));
+  }
+
+  // 模式切换
+  function switchMode(mode) {
+    currentMode = mode;
+    modeDefault.classList.toggle('active', mode === 'default');
+    modeCustomBtn.classList.toggle('active', mode === 'custom');
+    modeNearbyBtn.classList.toggle('active', mode === 'nearby');
+
+    customSection.style.display = mode === 'custom' ? '' : 'none';
+    nearbySection.style.display = mode === 'nearby' ? '' : 'none';
+    filterSections.forEach(el => {
+      if (el === locationSection) {
+        el.style.display = mode === 'nearby' ? '' : 'none';
+      } else {
+        el.style.display = mode === 'default' ? '' : 'none';
+      }
+    });
+
+    if (mode === 'default') {
+      allFoods = defaultFoods;
+      excludedTypes.clear();
+      selectedAreas.clear();
+      renderTags();
+    } else if (mode === 'custom') {
+      allFoods = getCustomFoods();
+    }
+    // nearby mode uses getNearbyFoods() directly in roll()
+  }
+
+  modeDefault.addEventListener('click', () => switchMode('default'));
+  modeCustomBtn.addEventListener('click', () => switchMode('custom'));
+  modeNearbyBtn.addEventListener('click', () => switchMode('nearby'));
+
+  // 添加自定义食物
+  addCustomBtn.addEventListener('click', addCustomFood);
+  customName.addEventListener('keydown', e => { if (e.key === 'Enter') addCustomFood(); });
+
+  function addCustomFood() {
+    const name = customName.value.trim();
+    if (!name) return;
+    const list = getCustomFoods();
+    list.push({
+      name,
+      type: '自定义',
+      area: '自定义'
+    });
+    saveCustomFoods(list);
+    allFoods = list;
+    customName.value = '';
+    customName.focus();
+    renderCustomList();
+  }
+
+  function renderCustomList() {
+    const list = getCustomFoods();
+    if (list.length === 0) {
+      customFoodList.innerHTML = '<li class="empty-hint">还没有自定义食物</li>';
+      return;
+    }
+    customFoodList.innerHTML = list.map((f, i) =>
+      `<li><span>${f.name}</span><button class="btn-del" data-idx="${i}">删除</button></li>`
+    ).join('');
+  }
+
+  customFoodList.addEventListener('click', e => {
+    const btn = e.target.closest('.btn-del');
+    if (!btn) return;
+    const idx = Number(btn.dataset.idx);
+    const list = getCustomFoods();
+    list.splice(idx, 1);
+    saveCustomFoods(list);
+    allFoods = list;
+    renderCustomList();
+  });
+
+  clearCustomBtn.addEventListener('click', () => {
+    localStorage.removeItem(CUSTOM_KEY);
+    allFoods = [];
+    renderCustomList();
+  });
+
+  // 加载 foods.json
+  async function loadFoods() {
+    const res = await fetch('foods.json');
+    defaultFoods = await res.json();
+    allFoods = defaultFoods;
+    renderTags();
+    renderCustomList();
+  }
+
+  // 渲染筛选标签
+  function renderTags() {
+    const areas = [...new Set(allFoods.map(f => f.area))].sort();
+    const types = [...new Set(allFoods.map(f => f.type))].sort();
+
+    areaTags.innerHTML = areas.map(a =>
+      `<div class="tag" data-value="${a}">${a}</div>`
+    ).join('');
+
+    typeTags.innerHTML = types.map(t =>
+      `<div class="tag" data-value="${t}">${t}</div>`
+    ).join('');
+
+    // 区域标签点击
+    areaTags.addEventListener('click', e => {
+      const tag = e.target.closest('.tag');
+      if (!tag) return;
+      const v = tag.dataset.value;
+      if (selectedAreas.has(v)) {
+        selectedAreas.delete(v);
+        tag.classList.remove('active');
+      } else {
+        selectedAreas.add(v);
+        tag.classList.add('active');
+      }
+    });
+
+    // 类型标签点击
+    typeTags.addEventListener('click', e => {
+      const tag = e.target.closest('.tag');
+      if (!tag) return;
+      const v = tag.dataset.value;
+      if (excludedTypes.has(v)) {
+        excludedTypes.delete(v);
+        tag.classList.remove('active');
+      } else {
+        excludedTypes.add(v);
+        tag.classList.add('active');
+      }
+    });
+  }
+
+  // 过滤食物
+  function getFilteredFoods() {
+    return allFoods.filter(f => {
+      if (excludedTypes.has(f.type)) return false;
+      if (selectedAreas.size > 0 && !selectedAreas.has(f.area)) return false;
+      return true;
+    });
+  }
+
+  // 按菜系过滤（附近餐馆模式）
+  function getFilteredByCuisine() {
+    if (selectedCuisines.size === 0) return defaultFoods;
+    return defaultFoods.filter(f => selectedCuisines.has(f.type));
+  }
+
+  // 随机抽取 + 滚动动画
+  async function roll() {
+    let pool;
+    if (currentMode === 'nearby') {
+      if (nearbyRestaurants.length === 0) {
+        // 未搜索过，自动用默认条件调用大模型
+        await fetchNearbyFromLLMs();
+        if (nearbyRestaurants.length === 0) return; // 搜索失败或无结果
+      }
+      pool = nearbyRestaurants;
+    } else {
+      pool = getFilteredFoods();
+    }
+
+    if (pool.length === 0) {
+      resultCard.innerHTML = '<div class="placeholder">没有符合条件的食物 😅</div>';
+      return;
+    }
+
+    rollBtn.disabled = true;
+    resultCard.classList.add('rolling');
+
+    const showItem = (item) => {
+      if (currentMode === 'nearby') {
+        const rating = item.rating ? ` ⭐${item.rating}` : '';
+        const price = item.price ? ` ¥${item.price}` : '';
+        return `<div class="food-name">${item.name}</div>
+                <div class="food-meta">📍 ${item.type || ''} · ${item.distance || ''}${rating}${price}</div>`;
+      }
+      return `<div class="food-name">${item.name}</div>
+              <div class="food-meta">${item.type}・${item.area}</div>`;
+    };
+
+    let ticks = 0;
+    const totalTicks = 18;
+    const interval = setInterval(() => {
+      const rand = pool[Math.floor(Math.random() * pool.length)];
+      resultCard.innerHTML = showItem(rand);
+      ticks++;
+      if (ticks >= totalTicks) {
+        clearInterval(interval);
+        resultCard.classList.remove('rolling');
+        rollBtn.disabled = false;
+        const final = pool[Math.floor(Math.random() * pool.length)];
+        resultCard.innerHTML = showItem(final);
+        saveHistory({
+          name: final.name,
+          type: final.cuisine || '附近餐馆',
+          area: final.address || '附近'
+        });
+      }
+    }, 80);
+  }
+
+  // localStorage 历史
+  function getLocalHistory() {
+    try {
+      return JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveLocalHistory(list) {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+  }
+
+  async function fetchHistoryFromApi() {
+    const res = await fetch('/api/history', { cache: 'no-store' });
+    if (!res.ok) throw new Error('history_read_failed');
+    return res.json();
+  }
+
+  async function loadHistory() {
+    try {
+      historyCache = await fetchHistoryFromApi();
+      saveLocalHistory(historyCache);
+    } catch {
+      historyCache = getLocalHistory();
+    }
+    renderHistory(historyCache);
+  }
+
+  async function saveHistory(food) {
+    const payload = {
+      name: food.name,
+      type: food.type,
+      area: food.area,
+      time: new Date().toLocaleString('zh-CN')
+    };
+
+    try {
+      const res = await fetch('/api/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('history_save_failed');
+      await loadHistory();
+    } catch {
+      const list = getLocalHistory();
+      list.unshift(payload);
+      if (list.length > MAX_HISTORY) list.length = MAX_HISTORY;
+      saveLocalHistory(list);
+      historyCache = list;
+      renderHistory(historyCache);
+    }
+  }
+
+  function renderHistory(list = historyCache) {
+    if (list.length === 0) {
+      historyList.innerHTML = '<li class="empty-hint">暂无记录</li>';
+      return;
+    }
+    historyList.innerHTML = list.map(h =>
+      `<li><span>${h.name} <small style="color:#bbb">${h.type}</small></span><span class="hl-time">${h.time}</span></li>`
+    ).join('');
+  }
+
+  async function reverseGeocode(lat, lng) {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=12&accept-language=zh-CN`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('reverse_geocode_failed');
+    const data = await res.json();
+    const addr = data.address || {};
+    return addr.city || addr.town || addr.county || addr.state || '';
+  }
+
+  function updateLocationText(city, lat, lng, accuracy) {
+    const coord = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    if (city) {
+      locationText.textContent = `位置：${city} | 坐标：${coord} | 精度约 ${Math.round(accuracy)} 米`;
+      return;
+    }
+    locationText.textContent = `坐标：${coord} | 精度约 ${Math.round(accuracy)} 米`;
+  }
+
+  function getCurrentLocation() {
+    if (!navigator.geolocation) {
+      locationStatus.textContent = '当前浏览器不支持定位';
+      locationText.textContent = '请使用支持定位的浏览器';
+      return;
+    }
+
+    locationStatus.textContent = '定位中...';
+    locateBtn.disabled = true;
+
+    navigator.geolocation.getCurrentPosition(async position => {
+      const { latitude, longitude, accuracy } = position.coords;
+      let city = '';
+      try {
+        city = await reverseGeocode(latitude, longitude);
+      } catch {
+        // Reverse geocode failures should not block coordinate display.
+      }
+      updateLocationText(city, latitude, longitude, accuracy);
+      locationStatus.textContent = '获取成功';
+      locateBtn.disabled = false;
+    }, error => {
+      let message = '定位失败';
+      if (error.code === 1) message = '定位权限被拒绝';
+      if (error.code === 2) message = '无法获取位置信息';
+      if (error.code === 3) message = '定位超时';
+      locationStatus.textContent = message;
+      locationText.textContent = '请检查浏览器定位权限，或在 HTTPS / localhost 环境下访问。';
+      locateBtn.disabled = false;
+    }, {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    });
+  }
+
+  // 事件
+  rollBtn.addEventListener('click', roll);
+  locateBtn.addEventListener('click', getCurrentLocation);
+  clearBtn.addEventListener('click', async () => {
+    try {
+      const res = await fetch('/api/history', { method: 'DELETE' });
+      if (!res.ok) throw new Error('history_clear_failed');
+      historyCache = [];
+      saveLocalHistory(historyCache);
+      renderHistory(historyCache);
+    } catch {
+      localStorage.removeItem(HISTORY_KEY);
+      historyCache = [];
+      renderHistory(historyCache);
+    }
+  });
+
+  // 初始化
+  loadFoods();
+  loadHistory();
+  renderCuisineTags();
+  // 位置区块默认隐藏（仅附近餐馆模式显示）
+  if (locationSection) locationSection.style.display = 'none';
+})();
+</script>
+</body>
+</html>
