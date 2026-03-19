@@ -67,6 +67,17 @@
     color: var(--primary);
     transition: opacity .2s;
   }
+  .result-card.clickable {
+    cursor: pointer;
+  }
+  .result-card.clickable:hover {
+    box-shadow: 0 6px 28px rgba(255,107,53,0.15);
+  }
+  .result-card .link-hint {
+    font-size: 0.75rem;
+    color: #4a90d9;
+    margin-top: 6px;
+  }
   .result-card .food-meta {
     margin-top: 8px;
     font-size: 0.9rem;
@@ -385,7 +396,7 @@
 
 <header>
   <h1>🤔 今天吃啥呢？</h1>
-  <p>不想加班！不想吃食堂！</p>
+  <p>翻个牌子，探个店！</p>
 </header>
 
 <div class="container">
@@ -426,9 +437,9 @@
     <div class="location-text" id="locationText"></div>
     <h3 style="margin-top:14px">📏 搜索距离</h3>
     <div class="distance-group" id="distanceTags">
-      <div class="tag" data-value="500">&lt;500m</div>
       <div class="tag" data-value="1000">&lt;1km</div>
       <div class="tag" data-value="3000">&lt;3km</div>
+      <div class="tag" data-value="4000">&lt;5km</div>
     </div>
     <h3 style="margin-top:14px">📝 特别要求</h3>
     <div class="location-row">
@@ -521,6 +532,7 @@
 
   let selectedDistance = 0; // 0 表示不限距离
   let nearbyRestaurants = []; // 模型返回的餐馆列表
+  let userCoords = null; // { lat, lng, accuracy } 自动定位获取的坐标
 
   // 菜系列表
   const CUISINE_LIST = [
@@ -548,14 +560,18 @@
   // API Key 已通过 Vercel 环境变量注入到 /api/chat serverless function
   // 前端不再加载或持有 API Key
 
-  // 获取位置文本
+  // 获取位置文本（含坐标），定位优先于手动输入
   function getLocationString() {
+    if (userCoords) {
+      const txt = locationText.textContent;
+      const cityMatch = txt.match(/位置：([^|]+)/);
+      const city = cityMatch ? cityMatch[1].trim() : '';
+      const coordStr = `经纬度：${userCoords.lat}, ${userCoords.lng}`;
+      return city ? `${city}（${coordStr}）` : coordStr;
+    }
     const manual = manualLocation.value.trim();
     if (manual) return manual;
-    const txt = locationText.textContent;
-    const match = txt.match(/位置：([^|]+)/);
-    if (match) return match[1].trim();
-    return '北京海淀区中关村'; // 默认位置
+    return ''; // 无位置信息
   }
 
   // 调用 Claude 模型搜索附近餐馆（通过 /api/chat 代理）
@@ -576,45 +592,84 @@
     const specialReq = document.getElementById('specialRequirement').value.trim();
     const specialStr = specialReq ? `\n- 特别要求：${specialReq}` : '';
 
-    const prompt = `你是一个本地生活餐馆搜索助手。请根据用户给定的位置和条件，搜索并推荐附近真实存在的餐馆。
+    const prompt = `你是一个“本地生活餐馆搜索助手”。你的任务不是凭记忆回答，而是必须先进行在线检索，并基于当前可访问、可验证的信息，推荐真实存在的附近餐馆。
 
 用户输入：
 - 位置：${location}
 - 搜索范围：${distanceStr}
 - 菜系偏好：${cuisineStr}${specialStr}
 
-任务要求：
+总目标：
+根据用户给定的位置与条件，搜索并推荐附近真实存在、当前仍可查询到的餐馆，并尽量保证名称、地址、评分、营业状态、链接等信息真实可核验。
+
+强制规则：
+1. 必须先搜索，再回答；禁止仅凭训练记忆、常识或臆测输出餐馆信息。
+2. 只返回“当前可查询到”的真实商户；如果无法验证真实性，不要输出该商户。
+3. 每家餐馆必须返回一个与该餐馆直接相关、且普通用户尽量无需登录即可访问的链接。
+4. link 优先级必须严格按照以下顺序选择：
+   - 地图地点页 / 地图 POI 页
+   - 餐馆官网
+   - 官方公众号文章页 / 官方社媒主页
+   - 可信生活服务平台的具体商户详情页
+   - 其他可公开访问的餐馆相关页面
+5. 大众点评链接不是首选；只有当没有更合适链接，且该链接可直接访问、不强依赖登录时，才可返回。
+6. 禁止返回需要强制登录、强制下载 App、无法打开详情、仅跳转首页的链接。
+7. 禁止返回泛搜索页、列表页、首页、与该店不直接对应的聚合页；必须尽量返回能明确对应到该餐馆或具体门店的页面。
+8. 如果找不到“与该餐馆直接相关且可访问”的有效链接，则不要输出该餐馆。
+9. 对名称、地址、评分、评论数、价格、营业状态等字段：
+   - 能确认再填；
+   - 不能确认则填 null；
+   - 严禁猜测、补全、虚构或沿用不确定信息。
+10. 若搜索结果不足，不要硬凑 5~10 家；返回真实能验证到的数量即可。
+
+搜索与排序规则：
 1. 以用户位置为中心，在“${distanceStr}”范围内搜索餐馆。
-2. 优先返回真实存在、当前可查询到、评分高且人气高的餐馆。
-3. 若指定了菜系偏好“${cuisineStr}”，优先返回匹配该菜系的餐馆；如果完全找不到，再放宽到相近菜系。
-4. 返回 5~10 家餐馆。
-5. 优先级排序：在指定范围内 > 评分更高 > 评论数/人气更高 > 优先营业中。
-6. 不要编造商户、评分、地址、营业状态或链接；如果信息不确定，不要敦填。
-7. link 字段尽量返回该餐馆可访问的详情页、地图页或官方页面链接。
-8. 输出必须是标准 JSON 数组，不要输出 markdown，不要加解释，不要加代码块。
+2. 排序优先级：
+   - 在指定范围内
+   - 菜系匹配度更高
+   - 评分更高
+   - 评论数/人气更高
+   - 当前营业中（仅在已确认时作为加分项）
+   - 链接可访问性更好（免登录、直达详情页优先）
+3. 若指定菜系“${cuisineStr}”，优先返回匹配菜系；若确实找不到，再放宽到相近菜系，并在 reason 中说明。
+4. 若多个来源信息不一致：
+   - 优先选择更可信、更新更明确的来源；
+   - 若仍无法判断，以 null 处理冲突字段，不要自行裁定。
 
 定位处理规则：
 1. 如果拿到了精确定位信息（经纬度/明确当前位置），则以该位置为中心搜索附近餐馆。
 2. 如果没有精确定位，但用户提供了可识别的地点名称，则以该地点名称作为搜索中心。
 3. 如果既没有精确定位，也没有明确地点名称，则默认按照“北京海淀”作为搜索中心进行推荐。
-4. 当使用默认位置时，在 reason 中注明：“未获取到定位信息，已按北京海淀推荐”。
+4. 当使用默认位置时，在每个结果的 reason 中注明：“未获取到定位信息，已按北京海淀推荐”。
 5. 不要把默认位置结果描述成用户真实附近餐馆。
 
-字段要求：
-- name: 餐馆名称
-- type: 菜系/类型
-- rating: 评分
+输出要求：
+1. 输出必须是标准 JSON 数组。
+2. 不要输出 markdown，不要加解释，不要加代码块，不要输出数组以外的任何文本。
+3. 数组中的每个元素必须为对象，并严格包含以下字段：
+
+- name: 餐馆名称，无法确认则不要输出该商户
+- type: 菜系/类型，无法确认则填 null
+- rating: 评分，无法确认则填 null
 - review_count: 评论数/评价人数，没有则填 null
 - price: 人均价格，没有则填 null
-- distance: 距离，如“350m”“1.2km”
-- address: 简要地址
+- distance: 距离，如“350m”“1.2km”，无法确认则填 null
+- address: 简要地址，无法确认则填 null
 - open_now: 是否营业中，true/false/null
-- reason: 推荐理由
-- link: 可访问链接，没有则填空字符串`;
+- reason: 推荐理由，必须基于已检索到的真实信息，不要写空泛套话
+- link: 必填，且必须是与该餐馆直接相关、普通用户尽量无需登录即可访问的链接；否则不要输出该商户
+
+输出前自检：
+- 是否每家店都真实可检索到？
+- 是否 link 可以直接打开，而不是强制登录页、首页或泛搜索页？
+- 是否存在编造的评分、地址、距离、营业状态或链接？
+- 是否有不确定却被强行填值的字段？
+- 如果有任何不确定字段，改为 null 或删除该商户后再输出。`;
 
     searchNearbyBtn.disabled = true;
     searchNearbyBtn.textContent = '🔍 搜索中...';
     nearbyResults.innerHTML = '<li class="nearby-loading">正在搜索附近餐馆...</li>';
+    resultCard.innerHTML = '<div class="placeholder">🔍 正在搜索附近的餐厅...</div>';
 
     try {
       const res = await fetch('/api/chat', {
@@ -734,6 +789,9 @@
   // 模式切换
   function switchMode(mode) {
     currentMode = mode;
+    resultCard.innerHTML = '<div class="placeholder">点击下方按钮，开始抽取 🎲</div>';
+    delete resultCard.dataset.link;
+    resultCard.classList.remove('clickable');
     modeDefault.classList.toggle('active', mode === 'default');
     modeCustomBtn.classList.toggle('active', mode === 'custom');
     modeNearbyBtn.classList.toggle('active', mode === 'nearby');
@@ -921,7 +979,17 @@
         resultCard.classList.remove('rolling');
         rollBtn.disabled = false;
         const final = pool[Math.floor(Math.random() * pool.length)];
-        resultCard.innerHTML = showItem(final);
+        let html = showItem(final);
+        // 附近餐馆模式且有 link 时，显示点击提示并添加可点击状态
+        if (currentMode === 'nearby' && final.link) {
+          html += '<div class="link-hint">👆 点击查看详情</div>';
+          resultCard.dataset.link = final.link;
+          resultCard.classList.add('clickable');
+        } else {
+          delete resultCard.dataset.link;
+          resultCard.classList.remove('clickable');
+        }
+        resultCard.innerHTML = html;
         saveHistory({
           name: final.name,
           type: final.cuisine || '附近餐馆',
@@ -1026,6 +1094,7 @@
 
     navigator.geolocation.getCurrentPosition(async position => {
       const { latitude, longitude, accuracy } = position.coords;
+      userCoords = { lat: latitude, lng: longitude, accuracy };
       let city = '';
       try {
         city = await reverseGeocode(latitude, longitude);
@@ -1052,6 +1121,10 @@
 
   // 事件
   rollBtn.addEventListener('click', roll);
+  resultCard.addEventListener('click', () => {
+    const link = resultCard.dataset.link;
+    if (link) window.open(link, '_blank', 'noopener');
+  });
   locateBtn.addEventListener('click', getCurrentLocation);
   clearBtn.addEventListener('click', async () => {
     try {
